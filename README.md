@@ -36,5 +36,7 @@ A functional programming (FP) implementation of Tic-Tac-Toe in Java, showcasing 
 - Implement advanced AI (e.g., minimax).
 
 ## Relevance to Employers
-Demonstrates modern Java (Streams, records, Optional), FP principles, Maven, and Oracle JDBC skills.
+- Demonstrates modern Java (Streams, records, Optional), FP principles, Maven, and Oracle JDBC skills.
+- ~85%+ instruction coverage with comprehensive test suite
+<img width="1502" alt="Screenshot 2025-06-18 at 12 55 46 AM" src="https://github.com/user-attachments/assets/348e0e66-e83a-41a5-b2ba-a24b16714bf7" />
 
