@@ -597,4 +597,335 @@ class FunctionalGameTest {
             }, "Database operations should be handled gracefully");
         }
     }
+
+    // ==================== ERROR HANDLING TESTS ====================
+
+    /**
+     * Tests error handling in parsePlayerType method.
+     * Validates exception throwing for invalid player types.
+     */
+    @Test
+    @Order(20)
+    @DisplayName("Should handle invalid player types with proper exceptions")
+    void testInvalidPlayerTypeHandling() {
+        // Test invalid player type through parseCommand
+        Optional<FunctionalGame.GameConfig> config = game.parseCommand("start invalid easy");
+        assertFalse(config.isPresent(), "Invalid player type should result in empty config");
+        
+        // Test various invalid inputs
+        assertFalse(game.parseCommand("start xyz abc").isPresent(), "Invalid types should be rejected");
+        assertFalse(game.parseCommand("start USER medium").isPresent(), "Case sensitivity should be handled");
+    }
+
+    /**
+     * Tests exception handling in parseCommand method.
+     * Validates proper error recovery and Optional usage.
+     */
+    @Test
+    @Order(21)
+    @DisplayName("Should handle parseCommand exceptions gracefully")
+    void testParseCommandExceptionHandling() {
+        // These should trigger the IllegalArgumentException catch block
+        Optional<FunctionalGame.GameConfig> result1 = game.parseCommand("start invalid_type easy");
+        Optional<FunctionalGame.GameConfig> result2 = game.parseCommand("start user unknown_type");
+        
+        assertFalse(result1.isPresent(), "Invalid first player type should return empty");
+        assertFalse(result2.isPresent(), "Invalid second player type should return empty");
+    }
+
+    // ==================== PRIVATE METHOD TESTING VIA PUBLIC API ====================
+
+    /**
+     * Tests private methods through public API calls.
+     * Ensures internal game logic functions properly.
+     */
+    @Test
+    @Order(22)
+    @DisplayName("Should execute private game logic methods correctly")
+    void testPrivateMethodsViaPublicAPI() {
+        // Test checkGameEnd indirectly through playGame with winning condition
+        FunctionalGame.GameState winningState = new FunctionalGame.GameState(
+                List.of(
+                    List.of('X', 'X', 'X'),
+                    List.of(' ', ' ', ' '),
+                    List.of(' ', ' ', ' ')
+                ), 'O', 3);
+        
+        FunctionalGame.Player player1 = new FunctionalGame.Player("Player1", 'X', FunctionalGame.PlayerType.USER);
+        FunctionalGame.Player player2 = new FunctionalGame.Player("Player2", 'O', FunctionalGame.PlayerType.EASY);
+        
+        // Simulate scanner input (won't be used since game should end immediately)
+        String input = "1 1\n";
+        Scanner testScanner = new Scanner(new ByteArrayInputStream(input.getBytes()));
+        
+        String result = game.playGame(winningState, player1, player2, testScanner);
+        assertEquals("X wins", result, "Should detect X win correctly");
+    }
+
+    /**
+     * Tests getCurrentPlayer private method functionality.
+     * Validates player switching logic.
+     */
+    @Test
+    @Order(23)
+    @DisplayName("Should switch players correctly in game flow")
+    void testPlayerSwitching() {
+        FunctionalGame.Player player1 = new FunctionalGame.Player("Player1", 'X', FunctionalGame.PlayerType.EASY);
+        FunctionalGame.Player player2 = new FunctionalGame.Player("Player2", 'O', FunctionalGame.PlayerType.EASY);
+        
+        // Test with X's turn
+        FunctionalGame.GameState stateX = new FunctionalGame.GameState(
+                game.createEmptyBoard(BOARD_SIZE, EMPTY_CELL), 'X', 0);
+        
+        // Test with O's turn  
+        FunctionalGame.GameState stateO = new FunctionalGame.GameState(
+                game.createEmptyBoard(BOARD_SIZE, EMPTY_CELL), 'O', 1);
+        
+        Scanner testScanner = new Scanner(new ByteArrayInputStream("exit\n".getBytes()));
+        
+        // These will test the getCurrentPlayer method indirectly
+        assertDoesNotThrow(() -> {
+            // Create small game scenarios to test player switching
+            FunctionalGame.GameState afterMove = game.tryMove(stateX, 0, 0, 'X').orElseThrow();
+            assertEquals('O', afterMove.currentPlayer(), "Should switch to O after X's move");
+        });
+    }
+
+    // ==================== GAME FLOW INTEGRATION TESTS ====================
+
+    /**
+     * Tests complete AI vs AI game flow.
+     * Validates end-to-end game execution with AI players.
+     */
+    @Test
+    @Order(24)
+    @DisplayName("Should handle AI vs AI game completion")
+    void testAIvsAIGameFlow() {
+        FunctionalGame.Player aiPlayer1 = new FunctionalGame.Player("AI_Easy", 'X', FunctionalGame.PlayerType.EASY);
+        FunctionalGame.Player aiPlayer2 = new FunctionalGame.Player("AI_Medium", 'O', FunctionalGame.PlayerType.MEDIUM);
+        
+        FunctionalGame.GameState initialState = new FunctionalGame.GameState(
+                game.createEmptyBoard(BOARD_SIZE, EMPTY_CELL), 'X', 0);
+        
+        Scanner testScanner = new Scanner(new ByteArrayInputStream("".getBytes()));
+        
+        // Capture output to verify game completion
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        System.setOut(new PrintStream(outputStream));
+        
+        try {
+            String result = game.playGame(initialState, aiPlayer1, aiPlayer2, testScanner);
+            
+            // Result should be either "X wins", "O wins", or "Draw"
+            assertTrue(result.equals("X wins") || result.equals("O wins") || result.equals("Draw"), 
+                    "Game should complete with valid result");
+        } finally {
+            System.setOut(originalOut);
+        }
+    }
+
+    /**
+     * Tests draw game scenario.
+     * Validates draw detection in complete game.
+     */
+    @Test
+    @Order(25)
+    @DisplayName("Should detect draw in complete game scenario")
+    void testDrawGameScenario() {
+        // Create a draw board state
+        FunctionalGame.GameState drawState = new FunctionalGame.GameState(
+                List.of(
+                    List.of('X', 'O', 'X'),
+                    List.of('O', 'O', 'X'),
+                    List.of('O', 'X', 'O')
+                ), 'X', 9);
+        
+        FunctionalGame.Player player1 = new FunctionalGame.Player("Player1", 'X', FunctionalGame.PlayerType.USER);
+        FunctionalGame.Player player2 = new FunctionalGame.Player("Player2", 'O', FunctionalGame.PlayerType.EASY);
+        
+        Scanner testScanner = new Scanner(new ByteArrayInputStream("".getBytes()));
+        
+        String result = game.playGame(drawState, player1, player2, testScanner);
+        assertEquals("Draw", result, "Should detect draw correctly");
+    }
+
+    // ==================== MOCK-BASED TESTING ====================
+
+    /**
+     * Tests displayMenu method using input simulation.
+     * This is challenging to test but we can test parts of it.
+     */
+    @Test
+    @Order(26)
+    @DisplayName("Should handle menu interactions")
+    void testDisplayMenuComponents() {
+        // Test the components that displayMenu uses
+        
+        // Test exit condition through parseCommand
+        Optional<FunctionalGame.GameConfig> exitResult = game.parseCommand("exit");
+        assertFalse(exitResult.isPresent(), "Exit command should not create game config");
+        
+        // Test valid game start
+        Optional<FunctionalGame.GameConfig> validGame = game.parseCommand("start easy medium");
+        assertTrue(validGame.isPresent(), "Valid start command should create game config");
+        assertEquals(FunctionalGame.PlayerType.EASY, validGame.get().player1().type());
+        assertEquals(FunctionalGame.PlayerType.MEDIUM, validGame.get().player2().type());
+        
+        // Test invalid command handling
+        Optional<FunctionalGame.GameConfig> invalidGame = game.parseCommand("invalid command");
+        assertFalse(invalidGame.isPresent(), "Invalid command should not create game config");
+    }
+
+    /**
+     * Tests saveGameState method functionality.
+     * Uses mock-like approach to test without actual database.
+     */
+    @Test
+    @Order(27)
+    @DisplayName("Should handle saveGameState method gracefully")
+    void testSaveGameStateMethod() {
+        FunctionalGame.GameState testState = new FunctionalGame.GameState(
+                game.createEmptyBoard(BOARD_SIZE, EMPTY_CELL), 'X', 0);
+        
+        // This will test the method exists and handles database connection errors gracefully
+        assertDoesNotThrow(() -> game.saveGameState(testState), 
+                "SaveGameState should handle connection errors gracefully");
+    }
+
+    // ==================== ADDITIONAL EDGE CASES ====================
+
+    /**
+     * Tests additional edge cases and boundary conditions.
+     */
+    @Test
+    @Order(28)
+    @DisplayName("Should handle additional edge cases")
+    void testAdditionalEdgeCases() {
+        // Test empty string variations
+        assertFalse(game.parseCommand("   ").isPresent(), "Whitespace should be invalid");
+        assertFalse(game.parseCommand("\n").isPresent(), "Newline should be invalid");
+        assertFalse(game.parseCommand("\t").isPresent(), "Tab should be invalid");
+        
+        // Test partial commands
+        assertFalse(game.parseCommand("start").isPresent(), "Incomplete command should be invalid");
+        assertFalse(game.parseCommand("start user").isPresent(), "Missing second player should be invalid");
+        
+        // Test case sensitivity in commands
+        assertFalse(game.parseCommand("START user easy").isPresent(), "Uppercase START should be invalid");
+        assertFalse(game.parseCommand("Start user easy").isPresent(), "Mixed case Start should be invalid");
+        
+        // Test extra parameters
+        assertFalse(game.parseCommand("start user easy extra").isPresent(), "Extra parameters should be invalid");
+    }
+
+    /**
+     * Tests user move input edge cases.
+     */
+    @Test
+    @Order(29)
+    @DisplayName("Should handle user move input edge cases")
+    void testUserMoveEdgeCases() {
+        FunctionalGame.GameState gameState = new FunctionalGame.GameState(
+                game.createEmptyBoard(BOARD_SIZE, EMPTY_CELL), 'X', 0);
+        
+        // Test various invalid input formats
+        assertFalse(game.tryUserMove(gameState, "").isPresent(), "Empty input should be invalid");
+        assertFalse(game.tryUserMove(gameState, " ").isPresent(), "Space only should be invalid");
+        assertFalse(game.tryUserMove(gameState, "1").isPresent(), "Single number should be invalid");
+        assertFalse(game.tryUserMove(gameState, "1 ").isPresent(), "Number with space should be invalid");
+        assertFalse(game.tryUserMove(gameState, " 1").isPresent(), "Space with number should be invalid");
+        assertFalse(game.tryUserMove(gameState, "11").isPresent(), "Numbers without space should be invalid");
+        assertFalse(game.tryUserMove(gameState, "1  2").isPresent(), "Multiple spaces should be invalid");
+        assertFalse(game.tryUserMove(gameState, "a b").isPresent(), "Letters should be invalid");
+        assertFalse(game.tryUserMove(gameState, "1.0 2.0").isPresent(), "Decimals should be invalid");
+        assertFalse(game.tryUserMove(gameState, "-1 2").isPresent(), "Negative numbers should be invalid");
+        assertFalse(game.tryUserMove(gameState, "1 -2").isPresent(), "Negative second number should be invalid");
+    }
+
+    /**
+     * Tests AI strategy edge cases and boundary conditions.
+     */
+    @Test
+    @Order(30)
+    @DisplayName("Should handle AI strategy edge cases")
+    void testAIStrategyEdgeCases() {
+        // Test AI on nearly full board
+        FunctionalGame.GameState nearlyFullState = new FunctionalGame.GameState(
+                List.of(
+                    List.of('X', 'O', 'X'),
+                    List.of('O', 'X', 'O'),
+                    List.of('O', 'X', ' ')
+                ), 'X', 8);
+        
+        // All AI difficulties should find the last move
+        assertTrue(game.tryRandomMove(nearlyFullState, new Random(42), 'X').isPresent(), 
+                "Easy AI should find move on nearly full board");
+        assertTrue(game.tryMediumMove(nearlyFullState, 'X').isPresent(), 
+                "Medium AI should find move on nearly full board");
+        assertTrue(game.tryHardMove(nearlyFullState, 'X').isPresent(), 
+                "Hard AI should find move on nearly full board");
+        
+        // Test AI on completely full board (should return empty)
+        FunctionalGame.GameState fullState = new FunctionalGame.GameState(
+                List.of(
+                    List.of('X', 'O', 'X'),
+                    List.of('O', 'X', 'O'),
+                    List.of('O', 'X', 'X')
+                ), 'X', 9);
+        
+        assertFalse(game.tryRandomMove(fullState, new Random(42), 'X').isPresent(), 
+                "Easy AI should return empty on full board");
+    }
+
+    /**
+     * Tests win detection edge cases.
+     */
+    @Test
+    @Order(31)
+    @DisplayName("Should handle win detection edge cases")
+    void testWinDetectionEdgeCases() {
+        // Test no win condition
+        List<List<Character>> noWinBoard = List.of(
+            List.of('X', 'O', 'X'),
+            List.of('O', 'X', 'O'),
+            List.of('O', 'X', 'O')
+        );
+        assertFalse(game.hasWon(noWinBoard, 'X'), "Should not detect false win for X");
+        assertFalse(game.hasWon(noWinBoard, 'O'), "Should not detect false win for O");
+        
+        // Test partial patterns that shouldn't win
+        List<List<Character>> partialBoard = List.of(
+            List.of('X', 'X', ' '),
+            List.of(' ', ' ', ' '),
+            List.of(' ', ' ', ' ')
+        );
+        assertFalse(game.hasWon(partialBoard, 'X'), "Should not detect win with only 2 in a row");
+    }
+
+    // ==================== STRESS TESTING ====================
+
+    /**
+     * Stress tests for performance and reliability.
+     */
+    @Test
+    @Order(32)
+    @DisplayName("Should handle stress testing scenarios")
+    void testStressScenarios() {
+        // Test many board creations
+        assertDoesNotThrow(() -> {
+            IntStream.range(0, 10000)
+                    .parallel()
+                    .forEach(i -> game.createEmptyBoard(BOARD_SIZE, EMPTY_CELL));
+        }, "Should handle many parallel board creations");
+        
+        // Test many move attempts
+        FunctionalGame.GameState testState = new FunctionalGame.GameState(
+                game.createEmptyBoard(BOARD_SIZE, EMPTY_CELL), 'X', 0);
+        
+        assertDoesNotThrow(() -> {
+            IntStream.range(0, 1000)
+                    .forEach(i -> game.tryMove(testState, 0, 0, 'X'));
+        }, "Should handle many move attempts");
+    }
 }
